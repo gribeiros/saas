@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saas-config
+  labels:
+    app: saas-app
+data:
+  SPRING_THREADS_VIRTUAL_ENABLED: "true"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  JWT_EXPIRATION_MS: "3600000"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://host.k3s.internal:5432/saas_db"
