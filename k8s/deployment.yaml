@@ -19,6 +19,8 @@ spec:
       labels:
         app: saas-app
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:
         - name: dockerhub-secret
       containers:

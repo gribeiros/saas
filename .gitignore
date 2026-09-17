@@ -31,3 +31,43 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets, Credentials & Environment Files ###
+.env
+.env.*
+!.env.example
+*.env
+
+### Kubernetes Secrets ###
+k8s/secret.yaml
+k8s/secrets/
+*secret*.yaml
+*secret*.yml
+!*secret*.template
+!*secret*.example
+
+### SSH, Certificates & Private Keys ###
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+*.pub
+
+### Kubernetes Cluster Configs ###
+k3s.yaml
+kubeconfig*
+*.kubeconfig
+
+### Spring Boot Local / Secret Profiles ###
+application-local.properties
+application-local.yaml
+application-local.yml
+application-secret.properties
+application-secret.yaml
+application-secret.yml
+docker-compose.override.yml
+docker-compose.local.yml
