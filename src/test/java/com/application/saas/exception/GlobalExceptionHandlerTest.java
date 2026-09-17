@@ -10,8 +10,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -127,6 +131,45 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().error()).isEqualTo("Bad Request");
         assertThat(response.getBody().message()).isEqualTo("A person can have at most 2 addresses");
         assertThat(response.getBody().path()).isEqualTo("/test/path");
+    }
+
+    @Test
+    @DisplayName("Should handle IllegalArgumentException with 400 Bad Request")
+    void shouldHandleIllegalArgumentException() {
+        var ex = new IllegalArgumentException("Invalid argument provided");
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleIllegalArgumentOrState(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(400);
+        assertThat(response.getBody().error()).isEqualTo("Bad Request");
+        assertThat(response.getBody().message()).isEqualTo("Invalid argument provided");
+    }
+
+    @Test
+    @DisplayName("Should handle HttpMessageNotReadableException with 400 Bad Request")
+    void shouldHandleHttpMessageNotReadableException() {
+        var ex = new HttpMessageNotReadableException("JSON parse error", (org.springframework.http.HttpInputMessage) null);
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMessageNotReadable(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(400);
+        assertThat(response.getBody().error()).isEqualTo("Bad Request");
+        assertThat(response.getBody().message()).contains("Malformed JSON request payload");
+    }
+
+    @Test
+    @DisplayName("Should handle MethodArgumentTypeMismatchException with 400 Bad Request")
+    void shouldHandleMethodArgumentTypeMismatchException() {
+        var ex = new MethodArgumentTypeMismatchException("abc", UUID.class, "id", null, null);
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMethodArgumentTypeMismatch(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(400);
+        assertThat(response.getBody().error()).isEqualTo("Bad Request");
+        assertThat(response.getBody().message()).contains("Invalid parameter value for 'id'");
     }
 
     @Test

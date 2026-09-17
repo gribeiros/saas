@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,5 +111,37 @@ class UserRepositoryTest {
         assertThat(userRepository.existsByUsername("unknown_user")).isFalse();
         assertThat(userRepository.existsByEmail("carlos@example.com")).isTrue();
         assertThat(userRepository.existsByEmail("unknown@example.com")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should return empty or false when lookup parameters are null or blank")
+    void shouldHandleNullAndBlankLookups() {
+        assertThat(userRepository.findByUsername(null)).isEmpty();
+        assertThat(userRepository.findByUsername("   ")).isEmpty();
+        assertThat(userRepository.findByEmail(null)).isEmpty();
+        assertThat(userRepository.findByEmail("   ")).isEmpty();
+        assertThat(userRepository.existsByUsername(null)).isFalse();
+        assertThat(userRepository.existsByUsername("   ")).isFalse();
+        assertThat(userRepository.existsByEmail(null)).isFalse();
+        assertThat(userRepository.existsByEmail("   ")).isFalse();
+        assertThat(userRepository.findById(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should find user by id when exists")
+    void shouldFindByIdWhenExists() {
+        Person person = Person.builder()
+                .name("Ana Costa")
+                .email("ana@example.com")
+                .birthDate(LocalDate.of(1998, 3, 10))
+                .gender(Gender.FEMININO)
+                .build();
+
+        User user = new User("anacosta", "secret", Set.of(Role.ROLE_USER), true);
+        user.setPerson(person);
+        User saved = userRepository.save(user);
+
+        assertThat(userRepository.findById(saved.getId())).isPresent();
+        assertThat(userRepository.findById(UUID.randomUUID())).isEmpty();
     }
 }
