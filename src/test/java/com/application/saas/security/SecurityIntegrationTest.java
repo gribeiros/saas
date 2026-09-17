@@ -229,4 +229,24 @@ class SecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
+
+    @Test
+    @DisplayName("GET /v3/api-docs should be publicly accessible and return 200 OK with OpenAPI schema")
+    void shouldAllowPublicAccessToSwaggerApiDocs() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.openapi").exists())
+                .andExpect(jsonPath("$.info.title").value("SaaS Application API"))
+                .andExpect(jsonPath("$.paths['/login']").exists())
+                .andExpect(jsonPath("$.paths['/register']").exists())
+                .andExpect(jsonPath("$.paths['/api/me']").exists())
+                .andExpect(jsonPath("$.components.securitySchemes.BearerAuth").exists());
+    }
+
+    @Test
+    @DisplayName("GET /swagger-ui/index.html should be publicly accessible without authentication")
+    void shouldAllowPublicAccessToSwaggerUi() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().isOk());
+    }
 }
