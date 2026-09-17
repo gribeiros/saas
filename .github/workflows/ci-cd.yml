@@ -56,9 +56,48 @@ jobs:
             echo "Relatório JaCoCo gerado com sucesso em target/site/jacoco/." >> $GITHUB_STEP_SUMMARY
           fi
 
-  cd:
-    name: Deploy to HostGator VPS
+  build-and-push:
+    name: Build & Push Docker Image to Docker Hub
     needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/saas-app
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Kubernetes on HostGator VPS
+    needs: [ci, build-and-push]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
@@ -67,7 +106,17 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH to HostGator VPS
+      - name: Copy Kubernetes Manifests to HostGator VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTGATOR_SSH_HOST }}
+          username: ${{ secrets.HOSTGATOR_SSH_USER }}
+          key: ${{ secrets.HOSTGATOR_SSH_KEY }}
+          port: ${{ secrets.HOSTGATOR_SSH_PORT || 22 }}
+          source: "k8s/"
+          target: "${{ secrets.HOSTGATOR_APP_DIR || '/opt/saas' }}/"
+
+      - name: Deploy to Kubernetes via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTGATOR_SSH_HOST }}
@@ -76,50 +125,34 @@ jobs:
           port: ${{ secrets.HOSTGATOR_SSH_PORT || 22 }}
           script: |
             set -e
-            APP_DIR="${{ secrets.HOSTGATOR_APP_DIR || '/var/www/saas' }}"
-            echo "Starting deploy in $APP_DIR on HostGator VPS..."
+            APP_DIR="${{ secrets.HOSTGATOR_APP_DIR || '/opt/saas' }}"
+            NAMESPACE="${{ secrets.K8S_NAMESPACE || 'default' }}"
+            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/saas-app:${{ github.sha }}"
 
-            mkdir -p "$APP_DIR"
-            cd "$APP_DIR"
-
-            if [ -d ".git" ]; then
-              echo "Repository exists. Pulling latest commits from main..."
-              git fetch origin main
-              git reset --hard origin/main
+            echo "Locating Kubernetes CLI..."
+            if command -v kubectl >/dev/null 2>&1; then
+              KUBE="kubectl"
+            elif command -v k3s >/dev/null 2>&1; then
+              KUBE="k3s kubectl"
+            elif command -v microk8s >/dev/null 2>&1; then
+              KUBE="microk8s kubectl"
             else
-              echo "Cloning repository..."
-              git clone "${{ github.server_url }}/${{ github.repository }}.git" .
-              git checkout main
-            fi
-
-            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
-            export POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-            export POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
-            export POSTGRES_DB="${{ secrets.POSTGRES_DB }}"
-
-            echo "Building and restarting services with Docker Compose..."
-            docker compose down --remove-orphans || true
-            docker compose up -d --build
-
-            echo "Performing post-deploy health check..."
-            sleep 10
-            HEALTHY=false
-            for i in $(seq 1 12); do
-              if curl -s -f http://localhost:8080/v3/api-docs > /dev/null 2>&1; then
-                echo "Application responded successfully on attempt $i!"
-                HEALTHY=true
-                break
-              fi
-              echo "Waiting for service availability (attempt $i/12)..."
-              sleep 5
-            done
-
-            if [ "$HEALTHY" = false ]; then
-              echo "Health check failed! Showing container logs:"
-              docker compose logs --tail=50 app
+              echo "Error: Kubernetes CLI (kubectl, k3s, microk8s) not found on VPS!"
               exit 1
             fi
 
-            echo "Deployment to HostGator completed successfully!"
-            docker compose ps
+            echo "Using Kubernetes binary: $KUBE"
+            echo "Deploying image: $IMAGE to namespace: $NAMESPACE"
 
+            cd "$APP_DIR/k8s"
+
+            $KUBE apply -f configmap.yaml -n "$NAMESPACE"
+            $KUBE apply -f service.yaml -n "$NAMESPACE"
+
+            sed -e "s|\${IMAGE_NAME}:\${IMAGE_TAG}|$IMAGE|g" deployment.yaml | $KUBE apply -n "$NAMESPACE" -f -
+
+            echo "Awaiting rolling update completion..."
+            $KUBE rollout status deployment/saas-app -n "$NAMESPACE" --timeout=180s
+
+            echo "Kubernetes deployment completed successfully!"
+            $KUBE get pods -l app=saas-app -n "$NAMESPACE"
