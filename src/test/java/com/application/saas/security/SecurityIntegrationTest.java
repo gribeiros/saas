@@ -1,8 +1,10 @@
 package com.application.saas.security;
 
-import com.application.saas.domain.Role;
+import com.application.saas.domain.Gender;
+import com.application.saas.dto.AddressRequest;
 import com.application.saas.dto.LoginRequest;
 import com.application.saas.dto.LoginResponse;
+import com.application.saas.dto.RegisterRequest;
 import com.application.saas.service.UserService;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
-import java.util.Set;
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -42,25 +44,50 @@ class SecurityIntegrationTest {
     @BeforeEach
     void setUp() {
         if (!userService.existsByUsername("admin")) {
-            userService.registerUser(
+            var addr = new AddressRequest(
+                    "Rua Principal",
+                    "100",
+                    "Bloco A",
+                    "Centro",
+                    "Brasilia",
+                    "DF",
+                    "70000-000"
+            );
+            var req = new RegisterRequest(
                     "admin",
+                    "password123",
+                    "Administrador",
                     "admin@example.com",
                     LocalDate.of(1990, 1, 1),
-                    "password123",
-                    Set.of(Role.ROLE_ADMIN, Role.ROLE_USER)
+                    Gender.NAO_INFORMADO,
+                    List.of(addr)
             );
+            userService.registerUser(req);
         }
     }
 
     @Test
-    @DisplayName("POST /register should be publicly accessible and register a new user with 201 Created")
+    @DisplayName("POST /register should be publicly accessible and register a new user with person and addresses")
     void shouldRegisterNewUserPublicly() throws Exception {
         String jsonPayload = """
                 {
                     "username": "integration_user",
+                    "password": "strongPassword123",
+                    "name": "Usuario Integracao",
                     "email": "integration@example.com",
                     "birthDate": "1994-03-25",
-                    "password": "strongPassword123"
+                    "gender": "MASCULINO",
+                    "addresses": [
+                        {
+                            "street": "Avenida Brasil",
+                            "number": "500",
+                            "complement": "Sala 12",
+                            "neighborhood": "Funcionarios",
+                            "city": "Belo Horizonte",
+                            "state": "MG",
+                            "zipCode": "30140-000"
+                        }
+                    ]
                 }
                 """;
 
@@ -69,8 +96,11 @@ class SecurityIntegrationTest {
                         .content(jsonPayload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("integration_user"))
-                .andExpect(jsonPath("$.email").value("integration@example.com"))
-                .andExpect(jsonPath("$.birthDate").value("1994-03-25"));
+                .andExpect(jsonPath("$.person.name").value("Usuario Integracao"))
+                .andExpect(jsonPath("$.person.email").value("integration@example.com"))
+                .andExpect(jsonPath("$.person.birthDate").value("1994-03-25"))
+                .andExpect(jsonPath("$.person.gender").value("MASCULINO"))
+                .andExpect(jsonPath("$.person.addresses[0].city").value("Belo Horizonte"));
 
         LoginRequest loginRequest = new LoginRequest("integration_user", "strongPassword123");
         MvcResult loginResult = mockMvc.perform(post("/login")
@@ -88,7 +118,10 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/api/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + loginResponse.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("integration_user"));
+                .andExpect(jsonPath("$.username").value("integration_user"))
+                .andExpect(jsonPath("$.person.name").value("Usuario Integracao"))
+                .andExpect(jsonPath("$.person.email").value("integration@example.com"))
+                .andExpect(jsonPath("$.person.addresses[0].city").value("Belo Horizonte"));
     }
 
     @Test
@@ -97,9 +130,21 @@ class SecurityIntegrationTest {
         String jsonPayload = """
                 {
                     "username": "different_username",
+                    "password": "password123",
+                    "name": "Outro Nome",
                     "email": "admin@example.com",
                     "birthDate": "1992-05-10",
-                    "password": "password123"
+                    "gender": "FEMININO",
+                    "addresses": [
+                        {
+                            "street": "Rua 2",
+                            "number": "20",
+                            "neighborhood": "Centro",
+                            "city": "Rio de Janeiro",
+                            "state": "RJ",
+                            "zipCode": "20000-000"
+                        }
+                    ]
                 }
                 """;
 

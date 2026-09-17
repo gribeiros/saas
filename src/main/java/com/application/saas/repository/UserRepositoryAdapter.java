@@ -27,7 +27,7 @@ public class UserRepositoryAdapter implements UserRepository {
         if (email == null || email.isBlank()) {
             return Optional.empty();
         }
-        return springDataUserRepository.findByEmail(email);
+        return springDataUserRepository.findByPersonEmail(email);
     }
 
     @Override
@@ -43,7 +43,7 @@ public class UserRepositoryAdapter implements UserRepository {
         if (email == null || email.isBlank()) {
             return false;
         }
-        return springDataUserRepository.existsByEmail(email);
+        return springDataUserRepository.existsByPersonEmail(email);
     }
 
     @Override

@@ -1,5 +1,8 @@
 package com.application.saas.controller;
 
+import com.application.saas.domain.Address;
+import com.application.saas.domain.Gender;
+import com.application.saas.domain.Person;
 import com.application.saas.domain.Role;
 import com.application.saas.domain.User;
 import com.application.saas.dto.LoginRequest;
@@ -113,24 +116,56 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with valid payload should return 201 Created and user details")
+    @DisplayName("POST /register with valid payload should return 201 Created with person and addresses")
     void shouldRegisterUserSuccessfully() throws Exception {
         String jsonPayload = """
                 {
                     "username": "newuser",
-                    "email": "newuser@example.com",
+                    "password": "strongPassword123",
+                    "name": "Carlos Silva",
+                    "email": "carlos@example.com",
                     "birthDate": "1995-06-15",
-                    "password": "strongPassword123"
+                    "gender": "MASCULINO",
+                    "addresses": [
+                        {
+                            "street": "Avenida Paulista",
+                            "number": "1000",
+                            "complement": "Apto 101",
+                            "neighborhood": "Bela Vista",
+                            "city": "São Paulo",
+                            "state": "SP",
+                            "zipCode": "01310-100"
+                        }
+                    ]
                 }
                 """;
+
+        Address address = Address.builder()
+                .id(UUID.randomUUID())
+                .street("Avenida Paulista")
+                .number("1000")
+                .complement("Apto 101")
+                .neighborhood("Bela Vista")
+                .city("São Paulo")
+                .state("SP")
+                .zipCode("01310-100")
+                .build();
+
+        Person person = Person.builder()
+                .id(UUID.randomUUID())
+                .name("Carlos Silva")
+                .email("carlos@example.com")
+                .birthDate(LocalDate.of(1995, 6, 15))
+                .gender(Gender.MASCULINO)
+                .build();
+        person.addAddress(address);
 
         User registeredUser = User.builder()
                 .id(UUID.randomUUID())
                 .username("newuser")
-                .email("newuser@example.com")
-                .birthDate(LocalDate.of(1995, 6, 15))
                 .roles(Set.of(Role.ROLE_USER))
                 .enabled(true)
+                .person(person)
                 .build();
 
         when(userService.registerUser(any(RegisterRequest.class))).thenReturn(registeredUser);
@@ -140,8 +175,13 @@ class AuthControllerTest {
                         .content(jsonPayload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("newuser"))
-                .andExpect(jsonPath("$.email").value("newuser@example.com"))
-                .andExpect(jsonPath("$.birthDate").value("1995-06-15"))
+                .andExpect(jsonPath("$.person.name").value("Carlos Silva"))
+                .andExpect(jsonPath("$.person.email").value("carlos@example.com"))
+                .andExpect(jsonPath("$.person.birthDate").value("1995-06-15"))
+                .andExpect(jsonPath("$.person.gender").value("MASCULINO"))
+                .andExpect(jsonPath("$.person.addresses[0].street").value("Avenida Paulista"))
+                .andExpect(jsonPath("$.person.addresses[0].city").value("São Paulo"))
+                .andExpect(jsonPath("$.person.addresses[0].state").value("SP"))
                 .andExpect(jsonPath("$.roles[0]").value("ROLE_USER"));
     }
 
@@ -151,9 +191,21 @@ class AuthControllerTest {
         String jsonPayload = """
                 {
                     "username": "newuser",
+                    "password": "strongPassword123",
+                    "name": "Carlos Silva",
                     "email": "not-an-email",
                     "birthDate": "1995-06-15",
-                    "password": "strongPassword123"
+                    "gender": "MASCULINO",
+                    "addresses": [
+                        {
+                            "street": "Rua 1",
+                            "number": "100",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        }
+                    ]
                 }
                 """;
 
@@ -167,14 +219,49 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with future birth date should return 400 Bad Request")
-    void shouldReturnBadRequestWhenBirthDateIsInFuture() throws Exception {
+    @DisplayName("POST /register with empty addresses should return 400 Bad Request")
+    void shouldReturnBadRequestWhenAddressesIsEmpty() throws Exception {
         String jsonPayload = """
                 {
                     "username": "newuser",
-                    "email": "newuser@example.com",
-                    "birthDate": "2099-01-01",
-                    "password": "strongPassword123"
+                    "password": "strongPassword123",
+                    "name": "Carlos Silva",
+                    "email": "carlos@example.com",
+                    "birthDate": "1995-06-15",
+                    "gender": "MASCULINO",
+                    "addresses": []
+                }
+                """;
+
+        mockMvc.perform(post("/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"));
+    }
+
+    @Test
+    @DisplayName("POST /register with invalid CEP should return 400 Bad Request")
+    void shouldReturnBadRequestWhenZipCodeIsInvalid() throws Exception {
+        String jsonPayload = """
+                {
+                    "username": "newuser",
+                    "password": "strongPassword123",
+                    "name": "Carlos Silva",
+                    "email": "carlos@example.com",
+                    "birthDate": "1995-06-15",
+                    "gender": "MASCULINO",
+                    "addresses": [
+                        {
+                            "street": "Rua 1",
+                            "number": "100",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "invalid-cep"
+                        }
+                    ]
                 }
                 """;
 
@@ -192,9 +279,21 @@ class AuthControllerTest {
         String jsonPayload = """
                 {
                     "username": "duplicateUser",
+                    "password": "password123",
+                    "name": "Carlos Silva",
                     "email": "dup@example.com",
                     "birthDate": "1990-01-01",
-                    "password": "password123"
+                    "gender": "NAO_INFORMADO",
+                    "addresses": [
+                        {
+                            "street": "Rua 1",
+                            "number": "100",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        }
+                    ]
                 }
                 """;
 

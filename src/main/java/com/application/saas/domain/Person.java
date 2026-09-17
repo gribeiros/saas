@@ -1,9 +1,7 @@
 package com.application.saas.domain;
 
 import jakarta.persistence.CascadeType;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,7 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -25,44 +23,44 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "persons")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(of = "username")
-public class User {
+@EqualsAndHashCode(of = "id")
+public class Person {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
+    @Column(nullable = false, length = 150)
+    private String name;
 
-    @Column(nullable = false, length = 255)
-    private String password;
+    @Column(nullable = false, unique = true, length = 100)
+    private String email;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role", nullable = false)
+    @Column(name = "birth_date", nullable = false)
+    private LocalDate birthDate;
+
     @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private Set<Role> roles = new HashSet<>();
+    @Column(nullable = false, length = 20)
+    private Gender gender;
 
-    @Column(nullable = false)
+    @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
-    private boolean enabled = true;
+    private List<Address> addresses = new ArrayList<>();
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinColumn(name = "person_id", unique = true)
-    private Person person;
+    @OneToOne(mappedBy = "person", fetch = FetchType.LAZY)
+    private User user;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -70,17 +68,10 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public User(String username, String password, Set<Role> roles, boolean enabled) {
-        this.username = username;
-        this.password = password;
-        this.roles = (roles != null && !roles.isEmpty()) ? new HashSet<>(roles) : new HashSet<>(Set.of(Role.ROLE_USER));
-        this.enabled = enabled;
-    }
-
-    public void setPerson(Person person) {
-        this.person = person;
-        if (person != null) {
-            person.setUser(this);
+    public void addAddress(Address address) {
+        if (address != null) {
+            this.addresses.add(address);
+            address.setPerson(this);
         }
     }
 
@@ -100,3 +91,4 @@ public class User {
         this.updatedAt = Instant.now();
     }
 }
+
