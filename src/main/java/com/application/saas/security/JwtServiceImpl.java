@@ -30,7 +30,7 @@ public class JwtServiceImpl implements JwtService {
 
     public JwtServiceImpl(
             @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.expiration-ms:86400000}") long expirationMs
+            @Value("${jwt.expiration-ms:3600000}") long expirationMs
     ) {
         Objects.requireNonNull(secretKey, "JWT secret cannot be null");
         if (secretKey.getBytes(StandardCharsets.UTF_8).length < 32) {

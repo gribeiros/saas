@@ -1,5 +1,6 @@
 package com.application.saas.domain;
 
+import com.application.saas.exception.AddressLimitExceededException;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -68,8 +69,13 @@ public class Person {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    public static final int MAX_ADDRESSES = 2;
+
     public void addAddress(Address address) {
         if (address != null) {
+            if (this.addresses.size() >= MAX_ADDRESSES) {
+                throw new AddressLimitExceededException("A person cannot have more than " + MAX_ADDRESSES + " addresses");
+            }
             this.addresses.add(address);
             address.setPerson(this);
         }

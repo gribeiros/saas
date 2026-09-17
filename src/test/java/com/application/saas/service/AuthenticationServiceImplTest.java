@@ -57,14 +57,14 @@ class AuthenticationServiceImplTest {
                 .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(jwtService.generateToken(userDetails)).thenReturn("mock.jwt.token");
-        when(jwtService.getExpirationTime()).thenReturn(86400000L);
+        when(jwtService.getExpirationTime()).thenReturn(3600000L);
 
         LoginResponse response = authenticationService.login(request);
 
         assertThat(response).isNotNull();
         assertThat(response.token()).isEqualTo("mock.jwt.token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(86400L);
+        assertThat(response.expiresIn()).isEqualTo(3600L);
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(jwtService).generateToken(userDetails);

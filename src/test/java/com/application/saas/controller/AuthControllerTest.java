@@ -56,28 +56,28 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /login with valid credentials should return 200 OK and JWT token")
+    @DisplayName("POST /api/login with valid credentials should return 200 OK and JWT token")
     void shouldLoginSuccessfully() throws Exception {
         LoginRequest request = new LoginRequest("admin", "password123");
-        LoginResponse response = new LoginResponse("sample.jwt.token", "Bearer", 86400L);
+        LoginResponse response = new LoginResponse("sample.jwt.token", "Bearer", 3600L);
 
         when(authenticationService.login(any(LoginRequest.class))).thenReturn(response);
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("sample.jwt.token"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.expiresIn").value(86400));
+                .andExpect(jsonPath("$.expiresIn").value(3600));
     }
 
     @Test
-    @DisplayName("POST /login with blank username should return 400 Bad Request with field errors")
+    @DisplayName("POST /api/login with blank username should return 400 Bad Request with field errors")
     void shouldReturnBadRequestWhenUsernameIsBlank() throws Exception {
         LoginRequest request = new LoginRequest("", "password123");
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -87,11 +87,11 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /login with short password should return 400 Bad Request with field errors")
+    @DisplayName("POST /api/login with short password should return 400 Bad Request with field errors")
     void shouldReturnBadRequestWhenPasswordIsTooShort() throws Exception {
         LoginRequest request = new LoginRequest("admin", "123");
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -100,13 +100,13 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /login with invalid credentials should return 401 Unauthorized")
+    @DisplayName("POST /api/login with invalid credentials should return 401 Unauthorized")
     void shouldReturnUnauthorizedOnBadCredentials() throws Exception {
         LoginRequest request = new LoginRequest("admin", "wrongpassword");
         when(authenticationService.login(any(LoginRequest.class)))
                 .thenThrow(new InvalidCredentialsException("Invalid username or password"));
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -116,7 +116,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with valid payload should return 201 Created with person and addresses")
+    @DisplayName("POST /api/register with valid payload should return 201 Created with person and addresses")
     void shouldRegisterUserSuccessfully() throws Exception {
         String jsonPayload = """
                 {
@@ -170,7 +170,7 @@ class AuthControllerTest {
 
         when(userService.registerUser(any(RegisterRequest.class))).thenReturn(registeredUser);
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isCreated())
@@ -186,7 +186,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with invalid email should return 400 Bad Request")
+    @DisplayName("POST /api/register with invalid email should return 400 Bad Request")
     void shouldReturnBadRequestWhenRegisteringWithInvalidEmail() throws Exception {
         String jsonPayload = """
                 {
@@ -209,7 +209,7 @@ class AuthControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isBadRequest())
@@ -219,7 +219,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with empty addresses should return 400 Bad Request")
+    @DisplayName("POST /api/register with empty addresses should return 400 Bad Request")
     void shouldReturnBadRequestWhenAddressesIsEmpty() throws Exception {
         String jsonPayload = """
                 {
@@ -233,7 +233,7 @@ class AuthControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isBadRequest())
@@ -242,7 +242,57 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with invalid CEP should return 400 Bad Request")
+    @DisplayName("POST /api/register with more than 2 addresses should return 400 Bad Request")
+    void shouldReturnBadRequestWhenMoreThanTwoAddresses() throws Exception {
+        String jsonPayload = """
+                {
+                    "username": "newuser",
+                    "password": "strongPassword123",
+                    "name": "Carlos Silva",
+                    "email": "carlos@example.com",
+                    "birthDate": "1995-06-15",
+                    "gender": "MASCULINO",
+                    "addresses": [
+                        {
+                            "street": "Rua 1",
+                            "number": "100",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        },
+                        {
+                            "street": "Rua 2",
+                            "number": "200",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        },
+                        {
+                            "street": "Rua 3",
+                            "number": "300",
+                            "neighborhood": "Centro",
+                            "city": "SP",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details[0].field").value("addresses"))
+                .andExpect(jsonPath("$.details[0].message").value("A person can have at most 2 addresses"));
+    }
+
+    @Test
+    @DisplayName("POST /api/register with invalid CEP should return 400 Bad Request")
     void shouldReturnBadRequestWhenZipCodeIsInvalid() throws Exception {
         String jsonPayload = """
                 {
@@ -265,7 +315,7 @@ class AuthControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isBadRequest())
@@ -274,7 +324,7 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /register with duplicate user should return 409 Conflict")
+    @DisplayName("POST /api/register with duplicate user should return 409 Conflict")
     void shouldReturnConflictWhenUserAlreadyExists() throws Exception {
         String jsonPayload = """
                 {
@@ -300,7 +350,7 @@ class AuthControllerTest {
         when(userService.registerUser(any(RegisterRequest.class)))
                 .thenThrow(new UserAlreadyExistsException("Username 'duplicateUser' is already taken"));
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isConflict())

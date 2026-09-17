@@ -67,7 +67,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /register should be publicly accessible and register a new user with person and addresses")
+    @DisplayName("POST /api/register should be publicly accessible and register a new user with person and addresses")
     void shouldRegisterNewUserPublicly() throws Exception {
         String jsonPayload = """
                 {
@@ -91,7 +91,7 @@ class SecurityIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isCreated())
@@ -103,7 +103,7 @@ class SecurityIntegrationTest {
                 .andExpect(jsonPath("$.person.addresses[0].city").value("Belo Horizonte"));
 
         LoginRequest loginRequest = new LoginRequest("integration_user", "strongPassword123");
-        MvcResult loginResult = mockMvc.perform(post("/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
@@ -125,7 +125,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /register with duplicate email should return 409 Conflict")
+    @DisplayName("POST /api/register with duplicate email should return 409 Conflict")
     void shouldRejectDuplicateEmailOnRegister() throws Exception {
         String jsonPayload = """
                 {
@@ -148,7 +148,7 @@ class SecurityIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(post("/register")
+        mockMvc.perform(post("/api/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload))
                 .andExpect(status().isConflict())
@@ -157,25 +157,75 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /login with valid admin credentials should return 200 and valid JWT")
+    @DisplayName("POST /api/register with more than 2 addresses should return 400 Bad Request")
+    void shouldRejectRegisterWithMoreThanTwoAddresses() throws Exception {
+        String jsonPayload = """
+                {
+                    "username": "three_addresses_user",
+                    "password": "password123",
+                    "name": "Tres Enderecos",
+                    "email": "three@example.com",
+                    "birthDate": "1992-05-10",
+                    "gender": "FEMININO",
+                    "addresses": [
+                        {
+                            "street": "Rua 1",
+                            "number": "10",
+                            "neighborhood": "Centro",
+                            "city": "Sao Paulo",
+                            "state": "SP",
+                            "zipCode": "01001-000"
+                        },
+                        {
+                            "street": "Rua 2",
+                            "number": "20",
+                            "neighborhood": "Centro",
+                            "city": "Rio de Janeiro",
+                            "state": "RJ",
+                            "zipCode": "20000-000"
+                        },
+                        {
+                            "street": "Rua 3",
+                            "number": "30",
+                            "neighborhood": "Centro",
+                            "city": "Belo Horizonte",
+                            "state": "MG",
+                            "zipCode": "30140-000"
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details[0].field").value("addresses"))
+                .andExpect(jsonPath("$.details[0].message").value("A person can have at most 2 addresses"));
+    }
+
+    @Test
+    @DisplayName("POST /api/login with valid admin credentials should return 200 and valid JWT")
     void shouldLoginSuccessfully() throws Exception {
         LoginRequest request = new LoginRequest("admin", "password123");
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isString())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.expiresIn").isNumber());
+                .andExpect(jsonPath("$.expiresIn").value(3600));
     }
 
     @Test
-    @DisplayName("POST /login with invalid credentials should return 401 Unauthorized")
+    @DisplayName("POST /api/login with invalid credentials should return 401 Unauthorized")
     void shouldFailLoginWithBadCredentials() throws Exception {
         LoginRequest request = new LoginRequest("admin", "wrong-password");
 
-        mockMvc.perform(post("/login")
+        mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -195,7 +245,7 @@ class SecurityIntegrationTest {
     @DisplayName("GET /api/me with valid Bearer token should return 200 OK and user summary")
     void shouldAllowAuthenticatedRequestWithValidJwt() throws Exception {
         LoginRequest loginRequest = new LoginRequest("admin", "password123");
-        MvcResult loginResult = mockMvc.perform(post("/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
@@ -237,8 +287,8 @@ class SecurityIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.openapi").exists())
                 .andExpect(jsonPath("$.info.title").value("SaaS Application API"))
-                .andExpect(jsonPath("$.paths['/login']").exists())
-                .andExpect(jsonPath("$.paths['/register']").exists())
+                .andExpect(jsonPath("$.paths['/api/login']").exists())
+                .andExpect(jsonPath("$.paths['/api/register']").exists())
                 .andExpect(jsonPath("$.paths['/api/me']").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.BearerAuth").exists());
     }

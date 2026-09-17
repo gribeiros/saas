@@ -10,7 +10,7 @@ public record LoginResponse(
         @Schema(description = "Token authentication type", example = "Bearer")
         String tokenType,
 
-        @Schema(description = "Token expiration duration in seconds", example = "86400")
+        @Schema(description = "Token expiration duration in seconds", example = "3600")
         long expiresIn
 ) {
     public static LoginResponse bearer(String token, long expiresIn) {

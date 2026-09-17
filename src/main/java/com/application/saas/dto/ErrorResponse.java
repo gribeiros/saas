@@ -19,7 +19,7 @@ public record ErrorResponse(
         @Schema(description = "Detailed error message", example = "Validation failed for request payload")
         String message,
 
-        @Schema(description = "Request URI path", example = "/register")
+        @Schema(description = "Request URI path", example = "/api/register")
         String path,
 
         @Schema(description = "List of field validation error details")

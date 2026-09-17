@@ -63,18 +63,20 @@ public class MeController {
         User user = userService.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new UserNotFoundException(userDetails.getUsername()));
 
+        return ResponseEntity.ok(toUserSummaryResponse(user));
+    }
+
+    private UserSummaryResponse toUserSummaryResponse(User user) {
         var roles = user.getRoles().stream()
                 .map(Enum::name)
                 .collect(Collectors.toSet());
 
-        var response = new UserSummaryResponse(
+        return new UserSummaryResponse(
                 user.getId(),
                 user.getUsername(),
                 roles,
                 PersonResponse.from(user.getPerson()),
                 user.getCreatedAt()
         );
-
-        return ResponseEntity.ok(response);
     }
 }

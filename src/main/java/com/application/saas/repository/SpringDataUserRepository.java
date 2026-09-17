@@ -12,6 +12,10 @@ interface SpringDataUserRepository extends JpaRepository<User, UUID> {
     @EntityGraph(attributePaths = {"roles", "person", "person.addresses"})
     Optional<User> findByUsername(String username);
 
+    @Override
+    @EntityGraph(attributePaths = {"roles", "person", "person.addresses"})
+    Optional<User> findById(UUID id);
+
     Optional<User> findByPersonEmail(String email);
 
     boolean existsByUsername(String username);

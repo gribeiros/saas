@@ -5,6 +5,7 @@ import com.application.saas.domain.Role;
 import com.application.saas.domain.User;
 import com.application.saas.dto.AddressRequest;
 import com.application.saas.dto.RegisterRequest;
+import com.application.saas.exception.AddressLimitExceededException;
 import com.application.saas.exception.UserAlreadyExistsException;
 import com.application.saas.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -144,6 +146,31 @@ class UserServiceImplTest {
     }
 
     @Test
+    @DisplayName("Should throw AddressLimitExceededException when registering user with more than 2 addresses")
+    void shouldThrowWhenRegisteringWithMoreThanTwoAddresses() {
+        var addr1 = new AddressRequest("Rua 1", "10", null, "Centro", "SP", "SP", "01001-000");
+        var addr2 = new AddressRequest("Rua 2", "20", null, "Centro", "SP", "SP", "01001-000");
+        var addr3 = new AddressRequest("Rua 3", "30", null, "Centro", "SP", "SP", "01001-000");
+
+        var request = new RegisterRequest(
+                "john",
+                "password123",
+                "John",
+                "john@example.com",
+                LocalDate.of(1992, 8, 15),
+                Gender.MASCULINO,
+                List.of(addr1, addr2, addr3)
+        );
+
+        when(userRepository.existsByUsername("john")).thenReturn(false);
+        when(userRepository.existsByEmail("john@example.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.registerUser(request))
+                .isInstanceOf(AddressLimitExceededException.class)
+                .hasMessage("A person can have at most 2 addresses");
+    }
+
+    @Test
     @DisplayName("Should find user by username")
     void shouldFindUserByUsername() {
         User user = new User("admin", "hash", Set.of(Role.ROLE_ADMIN), true);
@@ -165,6 +192,27 @@ class UserServiceImplTest {
 
         assertThat(result).isPresent();
         assertThat(result.get().getUsername()).isEqualTo("admin");
+    }
+
+    @Test
+    @DisplayName("Should find user by id")
+    void shouldFindUserById() {
+        UUID userId = UUID.randomUUID();
+        User user = new User("admin", "hash", Set.of(Role.ROLE_ADMIN), true);
+        user.setId(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        Optional<User> result = userService.findById(userId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(userId);
+        assertThat(result.get().getUsername()).isEqualTo("admin");
+    }
+
+    @Test
+    @DisplayName("Should return empty optional when finding user with null id")
+    void shouldReturnEmptyForNullId() {
+        assertThat(userService.findById(null)).isEmpty();
     }
 
     @Test

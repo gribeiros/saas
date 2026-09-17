@@ -6,6 +6,7 @@ import com.application.saas.domain.Role;
 import com.application.saas.domain.User;
 import com.application.saas.dto.AddressRequest;
 import com.application.saas.dto.RegisterRequest;
+import com.application.saas.exception.AddressLimitExceededException;
 import com.application.saas.exception.UserAlreadyExistsException;
 import com.application.saas.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -26,6 +28,15 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        log.debug("Looking up user by id: {}", id);
+        return userRepository.findById(id);
+    }
 
     @Override
     public Optional<User> findByUsername(String username) {
@@ -85,6 +96,10 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         if (request.addresses() != null) {
+            if (request.addresses().size() > Person.MAX_ADDRESSES) {
+                log.warn("Registration rejected: maximum {} addresses allowed, but {} provided", Person.MAX_ADDRESSES, request.addresses().size());
+                throw new AddressLimitExceededException("A person can have at most " + Person.MAX_ADDRESSES + " addresses");
+            }
             for (AddressRequest addrReq : request.addresses()) {
                 Address address = Address.builder()
                         .street(addrReq.street())

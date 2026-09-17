@@ -116,6 +116,20 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("Should handle AddressLimitExceededException with 400 Bad Request")
+    void shouldHandleAddressLimitExceeded() {
+        var ex = new AddressLimitExceededException("A person can have at most 2 addresses");
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleAddressLimitExceeded(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(400);
+        assertThat(response.getBody().error()).isEqualTo("Bad Request");
+        assertThat(response.getBody().message()).isEqualTo("A person can have at most 2 addresses");
+        assertThat(response.getBody().path()).isEqualTo("/test/path");
+    }
+
+    @Test
     @DisplayName("Should handle generic Exception with 500 Internal Server Error")
     void shouldHandleGenericException() {
         var ex = new RuntimeException("Unexpected boom");

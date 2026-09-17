@@ -47,7 +47,8 @@ public record RegisterRequest(
         @NotNull(message = "Gender is required")
         Gender gender,
 
-        @Schema(description = "List of addresses (at least one address is required)")
+        @Schema(description = "List of addresses (maximum of 2 addresses allowed)")
         @NotEmpty(message = "At least one address must be provided")
+        @Size(max = 2, message = "A person can have at most 2 addresses")
         List<@Valid AddressRequest> addresses
 ) {}
