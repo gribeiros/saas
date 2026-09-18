@@ -5,11 +5,10 @@ metadata:
   labels:
     app: saas-app
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   rules:
-    - host: saas.seudominio.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
@@ -18,4 +17,3 @@ spec:
                 name: saas-app-service
                 port:
                   number: 8080
-

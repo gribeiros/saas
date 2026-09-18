@@ -156,9 +156,10 @@ jobs:
 
             cd "$APP_DIR/k8s"
 
-            # Apply runtime configs & services
+            # Apply runtime configs, services & ingress
             $KUBE apply -f configmap.yaml -n "$NAMESPACE"
             $KUBE apply -f service.yaml -n "$NAMESPACE"
+            $KUBE apply -f ingress.yaml -n "$NAMESPACE"
 
             # Substitute image tag and apply deployment
             sed -e "s|\${IMAGE_NAME}:\${IMAGE_TAG}|$IMAGE|g" deployment.yaml | $KUBE apply -n "$NAMESPACE" -f -
