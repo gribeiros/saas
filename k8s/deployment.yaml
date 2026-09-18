@@ -7,10 +7,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   selector:
     matchLabels:
       app: saas-app
@@ -19,6 +16,7 @@ spec:
       labels:
         app: saas-app
     spec:
+      terminationGracePeriodSeconds: 10
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:

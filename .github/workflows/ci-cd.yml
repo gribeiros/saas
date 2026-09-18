@@ -161,11 +161,20 @@ jobs:
             $KUBE apply -f service.yaml -n "$NAMESPACE"
             $KUBE apply -f ingress.yaml -n "$NAMESPACE"
 
+            # Clean up any leftover stuck terminating pods
+            $KUBE get pods -l app=saas-app -n "$NAMESPACE" --no-headers 2>/dev/null | grep Terminating | awk '{print $1}' | xargs -r $KUBE delete pod -n "$NAMESPACE" --force --grace-period=0 || true
+
             # Substitute image tag and apply deployment
             sed -e "s|\${IMAGE_NAME}:\${IMAGE_TAG}|$IMAGE|g" deployment.yaml | $KUBE apply -n "$NAMESPACE" -f -
 
-            echo "Awaiting rolling update completion..."
-            $KUBE rollout status deployment/saas-app -n "$NAMESPACE" --timeout=180s
+            echo "Awaiting rollout completion..."
+            if ! $KUBE rollout status deployment/saas-app -n "$NAMESPACE" --timeout=180s; then
+              echo "Rollout timed out! Diagnostic output:"
+              $KUBE get pods -l app=saas-app -n "$NAMESPACE" || true
+              $KUBE describe deployment saas-app -n "$NAMESPACE" || true
+              $KUBE logs -l app=saas-app -n "$NAMESPACE" --tail=50 || true
+              exit 1
+            fi
 
             echo "Deployment to k3s completed successfully!"
             $KUBE get pods -l app=saas-app -n "$NAMESPACE"
